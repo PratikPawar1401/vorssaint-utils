@@ -67,6 +67,14 @@ enum ScreenTextCompletionTests {
         var recognitionGeneration = 0
         static var outcomes: [Int: ScreenTextService.Outcome] = [:]
         static var requests: [(image: Int, qr: Bool, joinLines: Bool, languages: [String])] = []
+        /// Stands in for the area bound: maps an oversized capture to the
+        /// smaller image Vision should read, and records every image bounded.
+        static var scaledImages: [Int: Int] = [:]
+        static var boundedImages: [Int] = []
+        static func recognitionImage(_ image: Int) -> Int {
+            boundedImages.append(image)
+            return scaledImages[image] ?? image
+        }
         static func outcome(for image: Int, detectQRCodes: Bool, removeLineBreaks: Bool,
                             fallbackLanguages: [String]) -> ScreenTextService.Outcome {
             requests.append((image, detectQRCodes, removeLineBreaks, fallbackLanguages))
@@ -87,6 +95,8 @@ enum ScreenTextCompletionTests {
         QRResultController.shared.readings = []
         State.outcomes = [:]
         State.requests = []
+        State.scaledImages = [:]
+        State.boundedImages = []
     }
 
     static func finish() {
@@ -108,6 +118,17 @@ enum ScreenTextCompletionTests {
                      && !State.requests[0].qr && State.requests[0].joinLines
                      && State.requests[0].languages == ["en-US"],
                      "preview OCR uses the captured image and language/line preferences, bypassing QR")
+
+        reset()
+        State.scaledImages[60] = 24
+        let oversized = ScreenTextService()
+        oversized.copyText(from: 60)
+        suite.expect(State.boundedImages.isEmpty,
+                     "an oversized capture is not scaled on the main thread")
+        finish()
+        suite.expect(State.boundedImages == [60] && State.requests.map { $0.image } == [24]
+                     && NSPasteboard.general.value == "capture 24",
+                     "an oversized capture is scaled to the recognition bound before Vision reads it")
 
         for duringRecognition in [true, false] {
             reset()

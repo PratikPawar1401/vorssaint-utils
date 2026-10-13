@@ -203,12 +203,17 @@ final class ScreenshotQuickPreviewController {
     }
 
     /// The screenshot is already available at full resolution, so OCR can
-    /// begin immediately without showing another capture surface.
+    /// begin without showing another capture surface.
     private func copyText() {
         guard !closed, AppFeature.screenOCR.isAvailable else { return }
         let image = capture.image
         close()
-        ScreenTextService.shared.copyText(from: image)
+        // An after-capture copy landing during recognition would make the
+        // clipboard newer than the text, which would then be dropped, so
+        // recognition starts once that copy is in.
+        ScreenshotService.shared.afterAutoCopy {
+            ScreenTextService.shared.copyText(from: image)
+        }
     }
 
     private static func thumbnail(for image: CGImage) -> CGImage {
@@ -564,7 +569,8 @@ private struct ScreenshotQuickPreviewView: View {
                 qrControl
                     .transition(.scale.combined(with: .opacity))
             }
-            if featureRuntime.isAvailable(.screenOCR) {
+            // The floating preview shows Copy text on its thumbnail.
+            if embedded, featureRuntime.isAvailable(.screenOCR) {
                 textControl
             }
             actionButton(symbol: "square.and.arrow.down",
@@ -632,6 +638,10 @@ private struct ScreenshotQuickPreviewView: View {
 
     private var thumbnailButtons: some View {
         HStack(spacing: 5) {
+            if featureRuntime.isAvailable(.screenOCR) {
+                thumbnailButton(symbol: "text.viewfinder", title: strings.copyTextButton,
+                                action: copyText)
+            }
             thumbnailButton(symbol: "square.and.arrow.up", title: strings.shareButton,
                             action: systemShare)
                 .background(ShelfSharePickerAnchor(anchor: shareAnchor))
@@ -683,8 +693,8 @@ private struct ScreenshotQuickPreviewView: View {
             }
             .overlay(alignment: .topTrailing) {
                 // The floating action row already fills its fixed width in
-                // longer languages, so share and pin ride on the thumbnail
-                // there instead of squeezing Save, Copy and Edit.
+                // longer languages, so Copy text, share and pin ride on the
+                // thumbnail there instead of squeezing Save, Copy and Edit.
                 if !embedded { thumbnailButtons }
             }
 
@@ -788,10 +798,9 @@ private struct ScreenshotQuickPreviewView: View {
     /// Runs OCR against the full-resolution capture and copies its text.
     private var textControl: some View {
         Button(action: copyText) {
-            Image(systemName: "text.viewfinder")
-                .frame(width: embedded ? 28 : 22, height: embedded ? 28 : 18)
+            Image(systemName: "text.viewfinder").frame(width: 28, height: 28)
         }
-        .modifier(ScreenshotPreviewActionStyle(embedded: embedded))
+        .modifier(ScreenshotPreviewActionStyle(embedded: true))
         .controlSize(.small)
         .screenshotSafeHelp(strings.copyTextButton)
         .accessibilityLabel(strings.copyTextButton)

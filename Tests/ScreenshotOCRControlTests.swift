@@ -108,6 +108,20 @@ enum ScreenshotOCRControlTests {
                     suite.expect(buttons(host, label: strings.copyTextButton).isEmpty,
                                  "\(language.rawValue) embedded=\(embedded): disabling OCR removes the button from the same view")
                 }
+                // The island toolbar makes room for the button. The floating
+                // action row was already full in longer languages, so there
+                // the button rides on the thumbnail and the row keeps its width.
+                func rowWidth(ocr: Bool) -> CGFloat {
+                    FeatureRuntime.shared.available = ocr
+                    let row = NSHostingView(rootView: view.toolbar.defaultAppStorage(defaults))
+                    settle(row)
+                    return row.fittingSize.width
+                }
+                let withoutOCR = rowWidth(ocr: false)
+                let withOCR = rowWidth(ocr: true)
+                FeatureRuntime.shared.available = false
+                suite.expect(embedded ? withOCR > withoutOCR : withOCR == withoutOCR,
+                             "\(language.rawValue) embedded=\(embedded): only the island toolbar makes room for the OCR button")
             }
         }
     }

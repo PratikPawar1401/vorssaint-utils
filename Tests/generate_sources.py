@@ -1286,7 +1286,8 @@ def main():
                                    "    func openEditor(with", "    func editorDidClose(",
                                    "    private func invalidateLatestCaptureUploads()",
                                    "    private func beginLatestCapture(", "    private func discardLatestCapture(",
-                                   "    private func withholdLatestCapture()", "    private func syncLatestCapture("])
+                                   "    private func withholdLatestCapture()", "    private func syncLatestCapture(",
+                                   "    func afterAutoCopy("])
           + "}\n}\n")
     write("ScreenshotAutoShelf.swift", "import Foundation\n"
           + "extension ScreenshotAutoShelfTests {\n@MainActor final class Service: State {\n"
